@@ -1,24 +1,35 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Вход</title>
-</head>
-<body>
-    <h1>Вход в систему</h1>
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-            </ul>
-        {% endif %}
-    {% endwith %}
-    <form method="POST">
-        <label>Имя пользователя: <input type="text" name="username" required></label>
-        <label>Пароль: <input type="password" name="password" required></label>
-        <button type="submit">Войти</button>
-    </form>
-    <p>Нет аккаунта? <a href="{{ url_for('register') }}">Зарегистрироваться</a></p>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h2 class="auth-title">Вход в систему</h2>
+        
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username" class="form-label">Логин</label>
+                <input type="text" id="username" name="username" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">Пароль</label>
+                <input type="password" id="password" name="password" class="form-input" required>
+            </div>
+            
+            <button type="submit" class="auth-button">Войти</button>
+        </form>
+        
+        <div class="auth-footer">
+            Нет аккаунта? <a href="{{ url_for('register') }}" class="auth-link">Зарегистрироваться</a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

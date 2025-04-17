@@ -1,9 +1,12 @@
-from flask import Flask, render_template, request, session, redirect, url_for, flash, g
+from flask import Flask, render_template, request, session, redirect, url_for, flash, g, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 from functools import wraps
 from datetime import datetime
+import io
+import csv
+from reports import generate_transactions_report, generate_dashboard_data
 
 app = Flask(__name__)
 app.secret_key = 'your-very-secret-key-12345'
@@ -17,7 +20,6 @@ def get_db():
         g.db = sqlite3.connect(app.config['DATABASE'])
         g.db.row_factory = sqlite3.Row
 
-        # Создаем таблицы
         cursor = g.db.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -49,7 +51,6 @@ def get_db():
             )
         ''')
 
-        # Добавляем тестового пользователя
         cursor.execute("SELECT username FROM users WHERE username = 'admin'")
         if not cursor.fetchone():
             cursor.execute(
@@ -153,7 +154,6 @@ def register():
 def dashboard():
     db = get_db()
 
-    # Инициализируем статистику
     stats = {
         'total_count': 0,
         'total_income': 0.0,
@@ -177,7 +177,6 @@ def dashboard():
     except sqlite3.Error as e:
         flash(f'Ошибка при получении статистики: {str(e)}', 'error')
 
-    # Получаем последние транзакции
     recent_transactions = []
     try:
         recent_transactions = db.execute('''
@@ -319,7 +318,6 @@ def edit_transaction(transaction_id):
         except sqlite3.Error as e:
             flash(f'Ошибка при обновлении транзакции: {str(e)}', 'error')
 
-    # Получаем транзакцию для редактирования
     transaction = db.execute(
         'SELECT * FROM transactions WHERE id = ? AND user_id = ?',
         (transaction_id, session['user_id'])
@@ -347,6 +345,159 @@ def delete_transaction(transaction_id):
         flash(f'Ошибка при удалении транзакции: {str(e)}', 'error')
 
     return redirect(url_for('transactions'))
+
+
+@app.route('/reports')
+@login_required
+def reports():
+    filters = {
+        'sender_bank': request.args.get('sender_bank'),
+        'recipient_bank': request.args.get('recipient_bank'),
+        'start_date': request.args.get('start_date'),
+        'end_date': request.args.get('end_date'),
+        'status': request.args.get('status'),
+        'inn': request.args.get('inn'),
+        'min_amount': request.args.get('min_amount'),
+        'max_amount': request.args.get('max_amount'),
+        'transaction_type': request.args.get('transaction_type'),
+        'category': request.args.get('category')
+    }
+
+    db = get_db()
+    transactions_list = []
+    try:
+        query = '''
+            SELECT * FROM transactions 
+            WHERE user_id = ?
+        '''
+        params = [session['user_id']]
+
+        if filters['sender_bank']:
+            query += ' AND sender_bank LIKE ?'
+            params.append(f"%{filters['sender_bank']}%")
+
+        if filters['recipient_bank']:
+            query += ' AND recipient_bank LIKE ?'
+            params.append(f"%{filters['recipient_bank']}%")
+
+        if filters['status']:
+            query += ' AND status = ?'
+            params.append(filters['status'])
+
+        if filters['inn']:
+            query += ' AND recipient_inn = ?'
+            params.append(filters['inn'])
+
+        if filters['transaction_type']:
+            query += ' AND transaction_type = ?'
+            params.append(filters['transaction_type'])
+
+        if filters['category']:
+            query += ' AND category = ?'
+            params.append(filters['category'])
+
+        if filters['start_date']:
+            query += ' AND operation_date >= ?'
+            params.append(filters['start_date'])
+
+        if filters['end_date']:
+            query += ' AND operation_date <= ?'
+            params.append(filters['end_date'])
+
+        if filters['min_amount']:
+            query += ' AND amount >= ?'
+            params.append(float(filters['min_amount']))
+
+        if filters['max_amount']:
+            query += ' AND amount <= ?'
+            params.append(float(filters['max_amount']))
+
+        query += ' ORDER BY operation_date DESC'
+
+        transactions_list = db.execute(query, tuple(params)).fetchall()
+    except sqlite3.Error as e:
+        flash(f'Ошибка при получении списка транзакций: {str(e)}', 'error')
+
+    return render_template('report.html',
+                           report_data=transactions_list,
+                           filters=filters)
+
+
+@app.route('/reports/export/csv')
+@login_required
+def export_csv():
+    filters = {
+        'sender_bank': request.args.get('sender_bank'),
+        'recipient_bank': request.args.get('recipient_bank'),
+        'start_date': request.args.get('start_date'),
+        'end_date': request.args.get('end_date'),
+        'status': request.args.get('status'),
+        'inn': request.args.get('inn'),
+        'min_amount': request.args.get('min_amount'),
+        'max_amount': request.args.get('max_amount'),
+        'transaction_type': request.args.get('transaction_type'),
+        'category': request.args.get('category')
+    }
+
+    db = get_db()
+    transactions_list = []
+    try:
+        query = '''
+            SELECT * FROM transactions 
+            WHERE user_id = ?
+        '''
+        params = [session['user_id']]
+
+        # Применяем те же фильтры, что и в reports()
+        if filters['sender_bank']:
+            query += ' AND sender_bank LIKE ?'
+            params.append(f"%{filters['sender_bank']}%")
+
+        # ... остальные фильтры ...
+
+        query += ' ORDER BY operation_date DESC'
+
+        transactions_list = db.execute(query, tuple(params)).fetchall()
+    except sqlite3.Error as e:
+        flash(f'Ошибка при получении списка транзакций: {str(e)}', 'error')
+        return redirect(url_for('reports'))
+
+    # Создаем CSV файл
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Заголовки
+    writer.writerow([
+        'ID', 'Дата операции', 'Тип транзакции', 'Сумма', 'Статус',
+        'Банк отправителя', 'Счет', 'Банк получателя', 'ИНН получателя',
+        'Счет получателя', 'Категория', 'Телефон получателя', 'Комментарий'
+    ])
+
+    # Данные
+    for transaction in transactions_list:
+        writer.writerow([
+            transaction['id'],
+            transaction['operation_date'],
+            transaction['transaction_type'],
+            transaction['amount'],
+            transaction['status'],
+            transaction['sender_bank'],
+            transaction['account'],
+            transaction['recipient_bank'],
+            transaction['recipient_inn'],
+            transaction['recipient_account'],
+            transaction['category'],
+            transaction['recipient_phone'],
+            transaction['comment']
+        ])
+
+    output.seek(0)
+
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=transactions_report.csv"}
+    )
 
 
 @app.route('/logout')
