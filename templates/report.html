@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Отчет по транзакциям</h2>
+
+<div class="report-filters">
+    <h3>Фильтры</h3>
+    <form method="get" action="{{ url_for('reports') }}">
+        <div class="filter-group">
+            <label>Банк отправителя:</label>
+            <input type="text" name="sender_bank" value="{{ filters.sender_bank or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Банк получателя:</label>
+            <input type="text" name="recipient_bank" value="{{ filters.recipient_bank or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Дата от:</label>
+            <input type="text" name="start_date" placeholder="дд.мм.гггг" value="{{ filters.start_date or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Дата до:</label>
+            <input type="text" name="end_date" placeholder="дд.мм.гггг" value="{{ filters.end_date or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Статус:</label>
+            <select name="status">
+                <option value="">Все</option>
+                <option value="Новая" {% if filters.status == 'Новая' %}selected{% endif %}>Новая</option>
+                <option value="Подтвержденная" {% if filters.status == 'Подтвержденная' %}selected{% endif %}>Подтвержденная</option>
+                <option value="В обработке" {% if filters.status == 'В обработке' %}selected{% endif %}>В обработке</option>
+                <option value="Отменена" {% if filters.status == 'Отменена' %}selected{% endif %}>Отменена</option>
+                <option value="Платеж выполнен" {% if filters.status == 'Платеж выполнен' %}selected{% endif %}>Платеж выполнен</option>
+                <option value="Платеж удален" {% if filters.status == 'Платеж удален' %}selected{% endif %}>Платеж удален</option>
+                <option value="Возврат" {% if filters.status == 'Возврат' %}selected{% endif %}>Возврат</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>ИНН получателя:</label>
+            <input type="text" name="inn" value="{{ filters.inn or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Сумма от:</label>
+            <input type="number" step="0.00001" name="min_amount" value="{{ filters.min_amount or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Сумма до:</label>
+            <input type="number" step="0.00001" name="max_amount" value="{{ filters.max_amount or '' }}">
+        </div>
+
+        <div class="filter-group">
+            <label>Тип операции:</label>
+            <select name="transaction_type">
+                <option value="">Все</option>
+                <option value="Поступление" {% if filters.transaction_type == 'Поступление' %}selected{% endif %}>Поступление</option>
+                <option value="Списание" {% if filters.transaction_type == 'Списание' %}selected{% endif %}>Списание</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Категория:</label>
+            <input type="text" name="category" value="{{ filters.category or '' }}">
+        </div>
+
+        <button type="submit">Применить фильтры</button>
+        <a href="{{ url_for('reports') }}" class="button">Сбросить фильтры</a>
+    </form>
+</div>
+
+<div class="report-results">
+    <h3>Результаты</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Дата</th>
+                <th>Тип</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Банк отправителя</th>
+                <th>Банк получателя</th>
+                <th>ИНН получателя</th>
+                <th>Категория</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in report_data %}
+            <tr>
+                <td>{{ transaction.id }}</td>
+                <td>{{ transaction.operation_date }}</td>
+                <td>{{ transaction.transaction_type }}</td>
+                <td>{{ transaction.amount }}</td>
+                <td>{{ transaction.status }}</td>
+                <td>{{ transaction.sender_bank or '-' }}</td>
+                <td>{{ transaction.recipient_bank or '-' }}</td>
+                <td>{{ transaction.recipient_inn or '-' }}</td>
+                <td>{{ transaction.category or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="export-options">
+        <button id="exportCsv">Экспорт в CSV</button>
+        <button id="exportExcel">Экспорт в Excel</button>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

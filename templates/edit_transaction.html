@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Редактировать транзакцию</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { background: #3498db; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+        .back-link { display: inline-block; margin-top: 15px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Редактировать транзакцию</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="form-group">
+            <label>Тип лица:</label>
+            <select name="entity_type" required>
+                <option value="Физическое лицо" {% if transaction.entity_type == 'Физическое лицо' %}selected{% endif %}>Физическое лицо</option>
+                <option value="Юридическое лицо" {% if transaction.entity_type == 'Юридическое лицо' %}selected{% endif %}>Юридическое лицо</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Дата операции:</label>
+            <input type="date" name="operation_date" value="{{ transaction.operation_date }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Тип транзакции:</label>
+            <select name="transaction_type" required>
+                <option value="Поступление" {% if transaction.transaction_type == 'Поступление' %}selected{% endif %}>Поступление</option>
+                <option value="Списание" {% if transaction.transaction_type == 'Списание' %}selected{% endif %}>Списание</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Сумма:</label>
+            <input type="number" step="0.01" name="amount" value="{{ transaction.amount }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Статус:</label>
+            <select name="status" required>
+                <option value="Новая" {% if transaction.status == 'Новая' %}selected{% endif %}>Новая</option>
+                <option value="Подтвержденная" {% if transaction.status == 'Подтвержденная' %}selected{% endif %}>Подтвержденная</option>
+                <option value="Отменена" {% if transaction.status == 'Отменена' %}selected{% endif %}>Отменена</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Банк отправителя:</label>
+            <input type="text" name="sender_bank" value="{{ transaction.sender_bank or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Счет:</label>
+            <input type="text" name="account" value="{{ transaction.account or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Банк получателя:</label>
+            <input type="text" name="recipient_bank" value="{{ transaction.recipient_bank or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>ИНН получателя:</label>
+            <input type="text" name="recipient_inn" value="{{ transaction.recipient_inn or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Счет получателя:</label>
+            <input type="text" name="recipient_account" value="{{ transaction.recipient_account or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Категория:</label>
+            <input type="text" name="category" value="{{ transaction.category or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Телефон получателя:</label>
+            <input type="text" name="recipient_phone" value="{{ transaction.recipient_phone or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Комментарий:</label>
+            <textarea name="comment" rows="3">{{ transaction.comment or '' }}</textarea>
+        </div>
+
+        <button type="submit">Сохранить</button>
+    </form>
+
+    <a href="{{ url_for('transactions') }}" class="back-link">← Назад к списку транзакций</a>
+</body>
+</html>

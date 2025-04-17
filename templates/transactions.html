@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Все транзакции</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+        .income { color: green; }
+        .expense { color: red; }
+        .back-link { display: inline-block; margin-bottom: 20px; }
+        .actions { display: flex; gap: 5px; }
+        .actions a { padding: 5px 10px; text-decoration: none; border-radius: 3px; }
+        .edit { background: #3498db; color: white; }
+        .delete { background: #e74c3c; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Все транзакции</h1>
+
+    <a href="{{ url_for('dashboard') }}" class="back-link">← Назад в панель управления</a>
+
+    {% if transactions %}
+    <table>
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Тип</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Комментарий</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{ transaction.operation_date }}</td>
+                <td>{{ transaction.transaction_type }}</td>
+                <td class="{{ 'income' if transaction.transaction_type == 'Поступление' else 'expense' }}">
+                    {{ "%.2f"|format(transaction.amount) }} ₽
+                </td>
+                <td>{{ transaction.status }}</td>
+                <td>{{ transaction.comment or '-' }}</td>
+                <!-- Изменим кнопки действий: -->
+<td class="actions">
+    <a href="{{ url_for('edit_transaction', transaction_id=transaction.id) }}" class="edit">✏️</a>
+    <form action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}" method="POST" style="display: inline;">
+        <button type="submit" class="delete" onclick="return confirm('Вы уверены, что хотите удалить эту транзакцию?')">🗑️</button>
+    </form>
+</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Нет транзакций для отображения</p>
+    {% endif %}
+</body>
+</html>

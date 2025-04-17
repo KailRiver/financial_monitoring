@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Регистрация</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; }
+        .error { color: red; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input, button { padding: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Регистрация</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <label>Имя пользователя:</label>
+        <input type="text" name="username" required>
+
+        <label>Пароль:</label>
+        <input type="password" name="password" required>
+
+        <label>Подтвердите пароль:</label>
+        <input type="password" name="confirm_password" required>
+
+        <button type="submit">Зарегистрироваться</button>
+    </form>
+
+    <p>Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></p>
+</body>
+</html>
