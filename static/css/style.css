@@ -337,3 +337,6 @@ table th {
         font-size: 24px;
     }
 }
+.auth-page header nav {
+    display: none;
+}

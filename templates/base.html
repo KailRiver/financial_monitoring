@@ -9,6 +9,7 @@
 <body>
     <header>
         <h1>Финансовый мониторинг и отчетность</h1>
+        {% if show_navigation %}
         <nav>
             <ul>
                 <li><a href="{{ url_for('transactions') }}">Транзакции</a></li>
@@ -17,6 +18,7 @@
                 <li><a href="{{ url_for('logout') }}">Выйти</a></li>
             </ul>
         </nav>
+        {% endif %}
     </header>
     <main>
         {% block content %}{% endblock %}

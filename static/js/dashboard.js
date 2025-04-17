@@ -1,29 +1,48 @@
-function initDashboardCharts(data) {
-    // График поступлений vs списаний
+document.addEventListener('DOMContentLoaded', function() {
+    // Цвета для статусов
+    const statusColors = {
+        'Новая': '#3498db',
+        'Подтвержденная': '#2ecc71',
+        'В обработке': '#f39c12',
+        'Отменена': '#e74c3c',
+        'Платеж выполнен': '#27ae60',
+        'Платеж удален': '#95a5a6',
+        'Возврат': '#9b59b6'
+    };
+
+    // Получаем данные для графиков из атрибутов data-*
+    const dashboardData = JSON.parse(document.getElementById('dashboard-data').textContent);
+    
+    // График поступлений и списаний
     const incomeOutcomeCtx = document.getElementById('incomeOutcomeChart').getContext('2d');
     new Chart(incomeOutcomeCtx, {
         type: 'bar',
         data: {
             labels: ['Поступления', 'Списания'],
             datasets: [{
-                label: 'Количество',
-                data: [data.income_count, data.outcome_count],
-                backgroundColor: ['rgba(75, 192, 192, 0.6)', 'rgba(255, 99, 132, 0.6)']
+                label: 'Количество операций',
+                data: [dashboardData.income_count, dashboardData.outcome_count],
+                backgroundColor: ['rgba(46, 204, 113, 0.7)', 'rgba(231, 76, 60, 0.7)'],
+                borderColor: ['rgba(46, 204, 113, 1)', 'rgba(231, 76, 60, 1)'],
+                borderWidth: 1
             }, {
                 label: 'Сумма',
-                data: [data.income_amount, data.outcome_amount],
-                backgroundColor: ['rgba(75, 192, 192, 0.8)', 'rgba(255, 99, 132, 0.8)'],
+                data: [dashboardData.income_amount, dashboardData.outcome_amount],
+                backgroundColor: ['rgba(46, 204, 113, 0.3)', 'rgba(231, 76, 60, 0.3)'],
+                borderColor: ['rgba(46, 204, 113, 1)', 'rgba(231, 76, 60, 1)'],
+                borderWidth: 1,
                 type: 'line',
                 yAxisID: 'y1'
             }]
         },
         options: {
+            responsive: true,
             scales: {
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Количество'
+                        text: 'Количество операций'
                     }
                 },
                 y1: {
@@ -41,66 +60,53 @@ function initDashboardCharts(data) {
         }
     });
 
-    // График статусов транзакций
+    // График статусов операций
     const statusCtx = document.getElementById('statusChart').getContext('2d');
+    const statusLabels = Object.keys(dashboardData.status_stats).filter(k => dashboardData.status_stats[k] > 0);
+    const statusData = statusLabels.map(label => dashboardData.status_stats[label]);
+    const statusBackgrounds = statusLabels.map(label => statusColors[label]);
+
     new Chart(statusCtx, {
-        type: 'pie',
+        type: 'doughnut',
         data: {
-            labels: Object.keys(data.status_stats),
+            labels: statusLabels,
             datasets: [{
-                data: Object.values(data.status_stats),
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.6)',
-                    'rgba(54, 162, 235, 0.6)',
-                    'rgba(255, 206, 86, 0.6)',
-                    'rgba(75, 192, 192, 0.6)',
-                    'rgba(153, 102, 255, 0.6)',
-                    'rgba(255, 159, 64, 0.6)'
-                ]
+                data: statusData,
+                backgroundColor: statusBackgrounds,
+                borderWidth: 1
             }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                }
+            }
         }
     });
 
-    // График топ банков отправителей
+    // График банков отправителей
     const senderBanksCtx = document.getElementById('senderBanksChart').getContext('2d');
-    const senderBanksLabels = Object.keys(data.sender_banks).slice(0, 5);
-    const senderBanksData = senderBanksLabels.map(label => data.sender_banks[label]);
+    const senderBanksLabels = Object.keys(dashboardData.sender_banks)
+        .sort((a, b) => dashboardData.sender_banks[b] - dashboardData.sender_banks[a])
+        .slice(0, 5);
+    const senderBanksData = senderBanksLabels.map(label => dashboardData.sender_banks[label]);
 
     new Chart(senderBanksCtx, {
         type: 'bar',
         data: {
             labels: senderBanksLabels,
             datasets: [{
-                label: 'Количество транзакций',
+                label: 'Количество операций',
                 data: senderBanksData,
-                backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                borderColor: 'rgba(52, 152, 219, 1)',
+                borderWidth: 1
             }]
         },
         options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-
-    // График топ банков получателей
-    const recipientBanksCtx = document.getElementById('recipientBanksChart').getContext('2d');
-    const recipientBanksLabels = Object.keys(data.recipient_banks).slice(0, 5);
-    const recipientBanksData = recipientBanksLabels.map(label => data.recipient_banks[label]);
-
-    new Chart(recipientBanksCtx, {
-        type: 'bar',
-        data: {
-            labels: recipientBanksLabels,
-            datasets: [{
-                label: 'Количество транзакций',
-                data: recipientBanksData,
-                backgroundColor: 'rgba(75, 192, 192, 0.6)'
-            }]
-        },
-        options: {
+            responsive: true,
             scales: {
                 y: {
                     beginAtZero: true
@@ -111,23 +117,38 @@ function initDashboardCharts(data) {
 
     // График категорий
     const categoriesCtx = document.getElementById('categoriesChart').getContext('2d');
-    const categoriesLabels = Object.keys(data.categories).slice(0, 5);
-    const categoriesData = categoriesLabels.map(label => data.categories[label]);
+    const categoriesLabels = Object.keys(dashboardData.categories)
+        .sort((a, b) => dashboardData.categories[b] - dashboardData.categories[a])
+        .slice(0, 5);
+    const categoriesData = categoriesLabels.map(label => dashboardData.categories[label]);
 
     new Chart(categoriesCtx, {
-        type: 'doughnut',
+        type: 'pie',
         data: {
             labels: categoriesLabels,
             datasets: [{
                 data: categoriesData,
                 backgroundColor: [
-                    'rgba(255, 99, 132, 0.6)',
-                    'rgba(54, 162, 235, 0.6)',
-                    'rgba(255, 206, 86, 0.6)',
-                    'rgba(75, 192, 192, 0.6)',
-                    'rgba(153, 102, 255, 0.6)'
-                ]
+                    'rgba(155, 89, 182, 0.7)',
+                    'rgba(52, 152, 219, 0.7)',
+                    'rgba(46, 204, 113, 0.7)',
+                    'rgba(241, 196, 15, 0.7)',
+                    'rgba(230, 126, 34, 0.7)'
+                ],
+                borderWidth: 1
             }]
+        },
+        options: {
+            responsive: true
         }
     });
-}
+
+    // Анимация загрузки
+    document.querySelectorAll('.chart-container').forEach(container => {
+        container.style.opacity = 0;
+        setTimeout(() => {
+            container.style.transition = 'opacity 0.5s ease';
+            container.style.opacity = 1;
+        }, 100);
+    });
+});

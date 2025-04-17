@@ -1,9 +1,32 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
+from datetime import datetime
 
 db = SQLAlchemy()
 
+
+class TransactionStatus:
+    NEW = 'Новая'
+    CONFIRMED = 'Подтвержденная'
+    PROCESSING = 'В обработке'
+    CANCELLED = 'Отменена'
+    COMPLETED = 'Платеж выполнен'
+    DELETED = 'Платеж удален'
+    REFUND = 'Возврат'
+
+    @classmethod
+    def all_statuses(cls):
+        return [
+            cls.NEW, cls.CONFIRMED, cls.PROCESSING,
+            cls.CANCELLED, cls.COMPLETED, cls.DELETED, cls.REFUND
+        ]
+
+
 class Transaction(db.Model):
+    __tablename__ = 'transactions'
+
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     entity_type = db.Column(db.String(20), nullable=False)  # Физическое/Юридическое лицо
     operation_date = db.Column(db.DateTime, nullable=False)
     transaction_type = db.Column(db.String(20), nullable=False)  # Поступление/Списание
@@ -17,6 +40,7 @@ class Transaction(db.Model):
     recipient_account = db.Column(db.String(50))
     category = db.Column(db.String(50))
     recipient_phone = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -25,7 +49,7 @@ class Transaction(db.Model):
             'operation_date': self.operation_date.strftime('%d.%m.%Y'),
             'transaction_type': self.transaction_type,
             'comment': self.comment,
-            'amount': str(self.amount),
+            'amount': float(self.amount),
             'status': self.status,
             'sender_bank': self.sender_bank,
             'account': self.account,
@@ -35,3 +59,19 @@ class Transaction(db.Model):
             'category': self.category,
             'recipient_phone': self.recipient_phone
         }
+
+
+@event.listens_for(Transaction.status, 'set')
+def validate_status(target, value, oldvalue, initiator):
+    if value not in TransactionStatus.all_statuses():
+        raise ValueError(f"Invalid status: {value}. Must be one of {TransactionStatus.all_statuses()}")
+
+
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    transactions = db.relationship('Transaction', backref='user', lazy=True)
