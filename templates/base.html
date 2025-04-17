@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Финансовый мониторинг и отчетность</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
     <header>
@@ -12,9 +13,9 @@
         {% if show_navigation %}
         <nav>
             <ul>
+                <li><a href="{{ url_for('dashboard') }}">Дашборд</a></li>
                 <li><a href="{{ url_for('transactions') }}">Транзакции</a></li>
                 <li><a href="{{ url_for('reports') }}">Отчеты</a></li>
-                <li><a href="{{ url_for('dashboard') }}">Дашборд</a></li>
                 <li><a href="{{ url_for('logout') }}">Выйти</a></li>
             </ul>
         </nav>
@@ -23,9 +24,6 @@
     <main>
         {% block content %}{% endblock %}
     </main>
-    <footer>
-        <p>&copy; 2023 Финансовый мониторинг</p>
-    </footer>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
