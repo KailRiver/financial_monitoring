@@ -12,6 +12,7 @@ app.secret_key = 'your-very-secret-key-12345'
 app.config['DATABASE'] = os.path.join(os.path.dirname(__file__), 'finance.db')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
+# Константы статусов
 STATUS_CHOICES = [
     'Новая',
     'Подтвержденная',
@@ -22,14 +23,29 @@ STATUS_CHOICES = [
     'Возврат'
 ]
 
-NON_EDITABLE_STATUSES = ['Подтвержденная', 'В обработке', 'Отменена', 'Платеж выполнен', 'Возврат']
-NON_DELETABLE_STATUSES = ['Подтвержденная', 'В обработке', 'Отменена', 'Платеж выполнен', 'Возврат']
+NON_EDITABLE_STATUSES = [
+    'Подтвержденная',
+    'В обработке',
+    'Отменена',
+    'Платеж выполнен',
+    'Платеж удален',
+    'Возврат'
+]
+
+NON_DELETABLE_STATUSES = [
+    'Подтвержденная',
+    'В обработке',
+    'Отменена',
+    'Платеж выполнен',
+    'Возврат'
+]
 
 
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(app.config['DATABASE'])
         g.db.row_factory = sqlite3.Row
+
         cursor = g.db.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -39,6 +55,7 @@ def get_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,13 +78,17 @@ def get_db():
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         ''')
+
+        # Создаем тестового пользователя если нет
         cursor.execute("SELECT username FROM users WHERE username = 'admin'")
         if not cursor.fetchone():
             cursor.execute(
                 "INSERT INTO users (username, password) VALUES (?, ?)",
                 ('admin', generate_password_hash('admin123'))
             )
+
         g.db.commit()
+
     return g.db
 
 
@@ -105,13 +126,16 @@ def login():
         password = request.form['password']
         db = get_db()
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+
         if user and check_password_hash(user['password'], password):
             session['logged_in'] = True
             session['user_id'] = user['id']
             session['username'] = user['username']
             flash('Вы успешно вошли в систему!', 'success')
             return redirect(url_for('dashboard'))
+
         flash('Неверное имя пользователя или пароль', 'error')
+
     return render_template('login.html', show_navigation=False)
 
 
@@ -121,12 +145,15 @@ def register():
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form['confirm_password']
+
         if password != confirm_password:
             flash('Пароли не совпадают', 'error')
-            return render_template('register.html')
+            return render_template('register.html', show_navigation=False)
+
         if len(password) < 8:
             flash('Пароль должен содержать минимум 8 символов', 'error')
-            return render_template('register.html')
+            return render_template('register.html', show_navigation=False)
+
         db = get_db()
         try:
             cursor = db.execute(
@@ -134,13 +161,17 @@ def register():
                 (username, generate_password_hash(password))
             )
             db.commit()
+
             session['logged_in'] = True
             session['user_id'] = cursor.lastrowid
             session['username'] = username
+
             flash('Регистрация прошла успешно! Добро пожаловать!', 'success')
             return redirect(url_for('dashboard'))
+
         except sqlite3.IntegrityError:
             flash('Это имя пользователя уже занято', 'error')
+
     return render_template('register.html', show_navigation=False)
 
 
@@ -154,6 +185,7 @@ def dashboard():
         'total_expense': 0.0,
         'status_counts': {status: 0 for status in STATUS_CHOICES}
     }
+
     try:
         stats_result = db.execute('''
             SELECT 
@@ -162,6 +194,7 @@ def dashboard():
                 COALESCE(SUM(CASE WHEN transaction_type = 'Списание' THEN amount ELSE 0 END), 0) as total_expense
             FROM transactions WHERE user_id = ?
         ''', (session['user_id'],)).fetchone()
+
         if stats_result:
             stats.update(dict(stats_result))
 
@@ -171,8 +204,10 @@ def dashboard():
             WHERE user_id = ?
             GROUP BY status
         ''', (session['user_id'],)).fetchall()
+
         for row in status_stats:
             stats['status_counts'][row['status']] = row['count']
+
     except sqlite3.Error as e:
         flash(f'Ошибка при получении статистики: {str(e)}', 'error')
 
@@ -191,6 +226,7 @@ def dashboard():
                            username=session['username'],
                            stats=stats,
                            transactions=recent_transactions,
+                           status_choices=STATUS_CHOICES,
                            show_navigation=True)
 
 
@@ -199,6 +235,7 @@ def dashboard():
 def transactions():
     db = get_db()
     transactions_list = []
+
     try:
         transactions_list = db.execute('''
             SELECT * FROM transactions 
@@ -207,9 +244,12 @@ def transactions():
         ''', (session['user_id'],)).fetchall()
     except sqlite3.Error as e:
         flash(f'Ошибка при получении списка транзакций: {str(e)}', 'error')
+
     return render_template('transactions.html',
                            transactions=transactions_list,
-                           status_choices=STATUS_CHOICES)
+                           status_choices=STATUS_CHOICES,
+                           non_editable_statuses=NON_EDITABLE_STATUSES,
+                           show_navigation=True)
 
 
 @app.route('/transactions/add', methods=['GET', 'POST'])
@@ -220,10 +260,14 @@ def add_transaction():
             amount = float(request.form['amount'])
             if amount <= 0:
                 flash('Сумма должна быть положительным числом', 'error')
-                return render_template('add_transaction.html', status_choices=STATUS_CHOICES)
+                return render_template('add_transaction.html',
+                                       status_choices=STATUS_CHOICES,
+                                       show_navigation=True)
         except ValueError:
             flash('Некорректная сумма', 'error')
-            return render_template('add_transaction.html', status_choices=STATUS_CHOICES)
+            return render_template('add_transaction.html',
+                                   status_choices=STATUS_CHOICES,
+                                   show_navigation=True)
 
         db = get_db()
         try:
@@ -257,7 +301,10 @@ def add_transaction():
             return redirect(url_for('transactions'))
         except sqlite3.Error as e:
             flash(f'Ошибка при добавлении транзакции: {str(e)}', 'error')
-    return render_template('add_transaction.html', status_choices=STATUS_CHOICES)
+
+    return render_template('add_transaction.html',
+                           status_choices=STATUS_CHOICES,
+                           show_navigation=True)
 
 
 @app.route('/transactions/edit/<int:transaction_id>', methods=['GET', 'POST'])
@@ -273,9 +320,20 @@ def edit_transaction(transaction_id):
         flash('Транзакция не найдена', 'error')
         return redirect(url_for('transactions'))
 
-    if request.method == 'GET':
-        if transaction['status'] in NON_EDITABLE_STATUSES:
-            flash('Редактирование запрещено для данного статуса операции', 'error')
+    # Проверка статуса для GET запроса
+    if request.method == 'GET' and transaction['status'] in NON_EDITABLE_STATUSES:
+        flash(f'Редактирование запрещено для статуса "{transaction["status"]}"', 'error')
+        return redirect(url_for('transactions'))
+
+    # Проверка статуса для POST запроса
+    if request.method == 'POST':
+        current_status = db.execute(
+            'SELECT status FROM transactions WHERE id = ? AND user_id = ?',
+            (transaction_id, session['user_id'])
+        ).fetchone()['status']
+
+        if current_status in NON_EDITABLE_STATUSES:
+            flash(f'Редактирование запрещено для статуса "{current_status}"', 'error')
             return redirect(url_for('transactions'))
 
     if request.method == 'POST':
@@ -289,6 +347,7 @@ def edit_transaction(transaction_id):
             return redirect(url_for('edit_transaction', transaction_id=transaction_id))
 
         try:
+            # Обновляем только если текущий статус не в списке запрещенных
             db.execute(
                 '''
                 UPDATE transactions SET
@@ -305,8 +364,8 @@ def edit_transaction(transaction_id):
                     category = ?,
                     recipient_phone = ?,
                     comment = ?
-                WHERE id = ? AND user_id = ?
-                ''',
+                WHERE id = ? AND user_id = ? AND status NOT IN ({})
+                '''.format(','.join(['?'] * len(NON_EDITABLE_STATUSES))),
                 (
                     request.form['entity_type'],
                     request.form['operation_date'],
@@ -323,10 +382,15 @@ def edit_transaction(transaction_id):
                     request.form.get('comment', ''),
                     transaction_id,
                     session['user_id']
-                )
+                ) + tuple(NON_EDITABLE_STATUSES)
             )
-            db.commit()
-            flash('Транзакция успешно обновлена', 'success')
+
+            if db.total_changes == 0:
+                flash('Не удалось обновить транзакцию. Возможно, статус был изменен', 'error')
+            else:
+                db.commit()
+                flash('Транзакция успешно обновлена', 'success')
+
             return redirect(url_for('transactions'))
         except sqlite3.Error as e:
             flash(f'Ошибка при обновлении транзакции: {str(e)}', 'error')
@@ -334,7 +398,8 @@ def edit_transaction(transaction_id):
     return render_template('edit_transaction.html',
                            transaction=transaction,
                            status_choices=STATUS_CHOICES,
-                           non_editable_statuses=NON_EDITABLE_STATUSES)
+                           non_editable_statuses=NON_EDITABLE_STATUSES,
+                           show_navigation=True)
 
 
 @app.route('/transactions/delete/<int:transaction_id>', methods=['POST'])
@@ -351,10 +416,11 @@ def delete_transaction(transaction_id):
         return redirect(url_for('transactions'))
 
     if transaction['status'] in NON_DELETABLE_STATUSES:
-        flash('Удаление запрещено для данного статуса операции', 'error')
+        flash(f'Удаление запрещено для статуса "{transaction["status"]}"', 'error')
         return redirect(url_for('transactions'))
 
     try:
+        # Вместо удаления меняем статус на "Платеж удален"
         db.execute(
             'UPDATE transactions SET status = ? WHERE id = ? AND user_id = ?',
             ('Платеж удален', transaction_id, session['user_id'])
@@ -385,6 +451,7 @@ def reports():
 
     db = get_db()
     transactions_list = []
+
     try:
         query = 'SELECT * FROM transactions WHERE user_id = ?'
         params = [session['user_id']]
@@ -437,7 +504,8 @@ def reports():
     return render_template('report.html',
                            report_data=transactions_list,
                            filters=filters,
-                           status_choices=STATUS_CHOICES)
+                           status_choices=STATUS_CHOICES,
+                           show_navigation=True)
 
 
 @app.route('/reports/export/csv')
@@ -446,18 +514,12 @@ def export_csv():
     filters = {
         'sender_bank': request.args.get('sender_bank'),
         'recipient_bank': request.args.get('recipient_bank'),
-        'start_date': request.args.get('start_date'),
-        'end_date': request.args.get('end_date'),
-        'status': request.args.get('status'),
-        'inn': request.args.get('inn'),
-        'min_amount': request.args.get('min_amount'),
-        'max_amount': request.args.get('max_amount'),
-        'transaction_type': request.args.get('transaction_type'),
-        'category': request.args.get('category')
+        'status': request.args.get('status')
     }
 
     db = get_db()
     transactions_list = []
+
     try:
         query = 'SELECT * FROM transactions WHERE user_id = ?'
         params = [session['user_id']]
@@ -482,6 +544,7 @@ def export_csv():
 
     output = io.StringIO()
     writer = csv.writer(output)
+
     writer.writerow([
         'ID', 'Дата операции', 'Тип транзакции', 'Сумма', 'Статус',
         'Банк отправителя', 'Счет', 'Банк получателя', 'ИНН получателя',
@@ -523,6 +586,8 @@ def logout():
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
+
     with app.app_context():
         get_db()
+
     app.run(debug=True)

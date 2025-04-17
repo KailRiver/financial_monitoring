@@ -21,6 +21,20 @@ class TransactionStatus:
             cls.CANCELLED, cls.COMPLETED, cls.DELETED, cls.REFUND
         ]
 
+    @classmethod
+    def non_editable_statuses(cls):
+        return [
+            cls.CONFIRMED, cls.PROCESSING,
+            cls.CANCELLED, cls.COMPLETED, cls.DELETED, cls.REFUND
+        ]
+
+    @classmethod
+    def non_deletable_statuses(cls):
+        return [
+            cls.CONFIRMED, cls.PROCESSING,
+            cls.CANCELLED, cls.COMPLETED, cls.REFUND
+        ]
+
 
 class Transaction(db.Model):
     __tablename__ = 'transactions'
@@ -42,6 +56,15 @@ class Transaction(db.Model):
     recipient_phone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def __init__(self, **kwargs):
+        super(Transaction, self).__init__(**kwargs)
+        self.validate_status(self.status)
+
+    @classmethod
+    def validate_status(cls, status):
+        if status not in TransactionStatus.all_statuses():
+            raise ValueError(f"Недопустимый статус: {status}. Допустимые значения: {TransactionStatus.all_statuses()}")
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -61,12 +84,6 @@ class Transaction(db.Model):
         }
 
 
-@event.listens_for(Transaction.status, 'set')
-def validate_status(target, value, oldvalue, initiator):
-    if value not in TransactionStatus.all_statuses():
-        raise ValueError(f"Invalid status: {value}. Must be one of {TransactionStatus.all_statuses()}")
-
-
 class User(db.Model):
     __tablename__ = 'users'
 
@@ -75,3 +92,12 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     transactions = db.relationship('Transaction', backref='user', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+
+
+def init_db(app):
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
