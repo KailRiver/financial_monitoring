@@ -1,122 +1,58 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Отчет по операциям</h2>
-
-    <div class="card mb-4">
+<div class="reports">
+    <div class="card">
         <div class="card-header">
-            <h5>Фильтры</h5>
+            <h5>Фильтры отчетов</h5>
         </div>
         <div class="card-body">
-            <form method="get" action="{{ url_for('reports') }}" id="reportForm">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="sender_bank">Банк отправителя</label>
-                            <input type="text" class="form-control" id="sender_bank" name="sender_bank"
-                                   value="{{ filters.sender_bank or '' }}">
-                        </div>
+            <form method="get" action="{{ url_for('reports') }}">
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label for="start_date">Дата от</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filters.start_date or '' }}">
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="recipient_bank">Банк получателя</label>
-                            <input type="text" class="form-control" id="recipient_bank" name="recipient_bank"
-                                   value="{{ filters.recipient_bank or '' }}">
-                        </div>
+
+                    <div class="form-group">
+                        <label for="end_date">Дата до</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filters.end_date or '' }}">
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="status">Статус</label>
-                            <select class="form-control" id="status" name="status">
-                                <option value="">Все статусы</option>
-                                {% for status in status_choices %}
-                                    <option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>
-                                        {{ status }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
+
+                    <div class="form-group">
+                        <label for="status">Статус</label>
+                        <select class="form-control" id="status" name="status">
+                            <option value="">Все статусы</option>
+                            {% for status in status_choices %}
+                                <option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction_type">Тип операции</label>
+                        <select class="form-control" id="transaction_type" name="transaction_type">
+                            <option value="">Все типы</option>
+                            <option value="Поступление" {% if filters.transaction_type == 'Поступление' %}selected{% endif %}>Поступление</option>
+                            <option value="Списание" {% if filters.transaction_type == 'Списание' %}selected{% endif %}>Списание</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="row mt-3">
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="start_date">Дата от</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date"
-                                   value="{{ filters.start_date or '' }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="end_date">Дата до</label>
-                            <input type="date" class="form-control" id="end_date" name="end_date"
-                                   value="{{ filters.end_date or '' }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="min_amount">Сумма от</label>
-                            <input type="number" step="0.01" class="form-control" id="min_amount" name="min_amount"
-                                   value="{{ filters.min_amount or '' }}">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="max_amount">Сумма до</label>
-                            <input type="number" step="0.01" class="form-control" id="max_amount" name="max_amount"
-                                   value="{{ filters.max_amount or '' }}">
-                        </div>
-                    </div>
-                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter icon"></i>Применить фильтры
+                    </button>
+                    <a href="{{ url_for('reports') }}" class="btn btn-secondary">
+                        <i class="fas fa-times icon"></i>Сбросить
+                    </a>
 
-                <div class="row mt-3">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="transaction_type">Тип операции</label>
-                            <select class="form-control" id="transaction_type" name="transaction_type">
-                                <option value="">Все типы</option>
-                                <option value="Поступление" {% if filters.transaction_type == 'Поступление' %}selected{% endif %}>
-                                    Поступление
-                                </option>
-                                <option value="Списание" {% if filters.transaction_type == 'Списание' %}selected{% endif %}>
-                                    Списание
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="inn">ИНН получателя</label>
-                            <input type="text" class="form-control" id="inn" name="inn"
-                                   value="{{ filters.inn or '' }}" pattern="\d{11}" title="11 цифр">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="category">Категория</label>
-                            <input type="text" class="form-control" id="category" name="category"
-                                   value="{{ filters.category or '' }}">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-filter"></i> Применить фильтры
-                        </button>
-                        <a href="{{ url_for('reports') }}" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Сбросить
-                        </a>
-                    </div>
-                    <div class="col-md-6 text-right">
+                    <div class="export-actions">
                         <a href="{{ url_for('export_csv', **filters) }}" class="btn btn-success">
-                            <i class="fas fa-file-csv"></i> Экспорт в CSV
+                            <i class="fas fa-file-csv icon"></i>Экспорт в CSV
                         </a>
                         <a href="{{ url_for('export_excel', **filters) }}" class="btn btn-success">
-                            <i class="fas fa-file-excel"></i> Экспорт в Excel
+                            <i class="fas fa-file-excel icon"></i>Экспорт в Excel
                         </a>
                     </div>
                 </div>
@@ -141,8 +77,6 @@
                             <th>Статус</th>
                             <th>Банк отправителя</th>
                             <th>Банк получателя</th>
-                            <th>ИНН</th>
-                            <th>Категория</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -151,24 +85,24 @@
                             <td>{{ transaction['id'] }}</td>
                             <td>{{ transaction['operation_date'] }}</td>
                             <td>{{ transaction['transaction_type'] }}</td>
-                            <td>{{ "%.2f"|format(transaction['amount']) }} ₽</td>
+                            <td class="{{ 'text-success' if transaction['transaction_type'] == 'Поступление' else 'text-danger' }}">
+                                {{ "%.2f"|format(transaction['amount']) }} ₽
+                            </td>
                             <td>
-                                <span class="badge
-                                    {% if transaction['status'] == 'Новая' %}badge-primary
-                                    {% elif transaction['status'] == 'Подтвержденная' %}badge-success
-                                    {% elif transaction['status'] == 'В обработке' %}badge-warning
-                                    {% elif transaction['status'] == 'Отменена' %}badge-danger
-                                    {% elif transaction['status'] == 'Платеж выполнен' %}badge-success
-                                    {% elif transaction['status'] == 'Платеж удален' %}badge-secondary
-                                    {% elif transaction['status'] == 'Возврат' %}badge-info
-                                    {% endif %}">
+                                <span class="badge badge-{{
+                                    'primary' if transaction['status'] == 'Новая'
+                                    else 'success' if transaction['status'] == 'Подтвержденная'
+                                    else 'warning' if transaction['status'] == 'В обработке'
+                                    else 'danger' if transaction['status'] == 'Отменена'
+                                    else 'success' if transaction['status'] == 'Платеж выполнен'
+                                    else 'secondary' if transaction['status'] == 'Платеж удален'
+                                    else 'info'
+                                }}">
                                     {{ transaction['status'] }}
                                 </span>
                             </td>
                             <td>{{ transaction['sender_bank'] or '-' }}</td>
                             <td>{{ transaction['recipient_bank'] or '-' }}</td>
-                            <td>{{ transaction['recipient_inn'] or '-' }}</td>
-                            <td>{{ transaction['category'] or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -176,7 +110,7 @@
             </div>
             {% else %}
             <div class="alert alert-info">
-                Нет данных, соответствующих выбранным фильтрам
+                <i class="fas fa-info-circle icon"></i> Нет данных, соответствующих выбранным фильтрам
             </div>
             {% endif %}
         </div>
@@ -203,26 +137,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (startDate.value && startDate.value > endDate.value) {
                 alert('Дата "до" не может быть меньше даты "от"');
                 endDate.value = '';
-            }
-        });
-    }
-
-    // Валидация сумм
-    const minAmount = document.getElementById('min_amount');
-    const maxAmount = document.getElementById('max_amount');
-
-    if (minAmount && maxAmount) {
-        minAmount.addEventListener('change', function() {
-            if (maxAmount.value && parseFloat(minAmount.value) > parseFloat(maxAmount.value)) {
-                alert('Минимальная сумма не может быть больше максимальной');
-                minAmount.value = '';
-            }
-        });
-
-        maxAmount.addEventListener('change', function() {
-            if (minAmount.value && parseFloat(minAmount.value) > parseFloat(maxAmount.value)) {
-                alert('Максимальная сумма не может быть меньше минимальной');
-                maxAmount.value = '';
             }
         });
     }
